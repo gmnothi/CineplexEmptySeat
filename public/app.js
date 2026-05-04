@@ -36,10 +36,18 @@ function formatTime(value) {
 
 function groupedByTheatre(items) {
   return items.reduce((groups, item) => {
-    if (!groups.has(item.theatreName)) groups.set(item.theatreName, []);
-    groups.get(item.theatreName).push(item);
+    if (!groups.has(item.theatreName)) {
+      groups.set(item.theatreName, { distanceKm: item.distanceKm, rows: [] });
+    }
+    groups.get(item.theatreName).rows.push(item);
     return groups;
   }, new Map());
+}
+
+function formatDistance(km) {
+  if (typeof km !== "number" || !Number.isFinite(km)) return "";
+  if (km < 10) return `${km.toFixed(1)} km`;
+  return `${Math.round(km)} km`;
 }
 
 function showStatus(message) {
@@ -90,15 +98,20 @@ function renderShowings() {
   const groups = groupedByTheatre(showings);
   let index = 0;
 
-  for (const [theatre, rows] of groups) {
+  for (const [theatre, group] of groups) {
+    const { rows, distanceKm } = group;
     const isOpen = openTheatres.has(theatre);
     const heading = document.createElement("button");
     heading.className = "theatre";
     heading.type = "button";
     heading.setAttribute("aria-expanded", String(isOpen));
+    const distanceLabel = formatDistance(distanceKm);
+    const meta = distanceLabel
+      ? `${rows.length} showings · ${distanceLabel}`
+      : `${rows.length} showings`;
     heading.innerHTML = `
       <span>${escapeHtml(theatre)}</span>
-      <span>${rows.length} showings</span>
+      <span>${escapeHtml(meta)}</span>
     `;
     heading.addEventListener("click", () => {
       if (openTheatres.has(theatre)) openTheatres.delete(theatre);
@@ -188,7 +201,9 @@ async function loadShowings() {
     showings = payload.showings;
     openTheatres.clear();
     const theatreLabel = payload.theatreSource === "closest" ? "closest theatres" : "theatres";
-    summaryEl.textContent = `${payload.showingCount} showings across ${payload.theatreCount} ${theatreLabel} near ${payload.location.label}.`;
+    const radiusLabel = formatDistance(payload.maxDistanceKm);
+    const radiusSuffix = radiusLabel ? ` (within ${radiusLabel})` : "";
+    summaryEl.textContent = `${payload.showingCount} showings across ${payload.theatreCount} ${theatreLabel} near ${payload.location.label}${radiusSuffix}.`;
     showStatus(`${showings.filter((item) => item.occupied === 0).length} empty screenings found.`);
     renderShowings();
     activeShowingId = null;

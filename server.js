@@ -14,8 +14,9 @@ const TICKETING_API = "https://apis.cineplex.com/prod/ticketing/api";
 const DEFAULT_LAT = parseNumber(process.env.DEFAULT_LAT, 43.6532);
 const DEFAULT_LNG = parseNumber(process.env.DEFAULT_LNG, -79.3832);
 const DEFAULT_LOCATION_LABEL = "Toronto";
-const MAX_THEATRES = parseInteger(process.env.MAX_THEATRES, 12);
-const DEFAULT_THEATRES = parseInteger(process.env.DEFAULT_THEATRES, 8);
+const MAX_THEATRES = parseInteger(process.env.MAX_THEATRES, 24);
+const DEFAULT_THEATRES = parseInteger(process.env.DEFAULT_THEATRES, 12);
+const SHOWTIME_FETCH_CONCURRENCY = parseInteger(process.env.SHOWTIME_FETCH_CONCURRENCY, 4);
 const API_RATE_LIMIT = parseInteger(process.env.API_RATE_LIMIT, 45);
 const API_RATE_WINDOW_MS = parseInteger(process.env.API_RATE_WINDOW_MS, 60_000);
 const FETCH_TIMEOUT_MS = parseInteger(process.env.FETCH_TIMEOUT_MS, 12_000);
@@ -137,8 +138,6 @@ async function fetchJson(url, { headers = {}, cacheKey = url, ttlMs = UPSTREAM_C
 }
 
 async function cineplexJson(url) {
-  const cached = getCached(url);
-  if (cached) return cached;
   return fetchJson(url, {
     headers: { "Ocp-Apim-Subscription-Key": API_KEY },
     ttlMs: UPSTREAM_CACHE_TTL_MS,
@@ -262,9 +261,11 @@ function flattenShowtimes(payload, fallbackTheatre) {
             if (!session.isReservedSeating || !session.isShowtimeEnabledOnline || session.isSoldOut) {
               continue;
             }
+            if (!session.vistaSessionId) continue;
             showings.push({
               theatreId: root.theatreId || fallbackTheatre.theatreId,
               theatreName: root.theatre || fallbackTheatre.theatreName,
+              distanceKm: fallbackTheatre.distanceKm,
               movie: movie.name,
               time: session.showStartDateTime,
               showtimeId: session.vistaSessionId,
@@ -283,6 +284,32 @@ function flattenShowtimes(payload, fallbackTheatre) {
 function distanceMeters(theatre) {
   const distance = theatre.location?.distanceToOriginInMeters;
   return typeof distance === "number" ? distance : Number.POSITIVE_INFINITY;
+}
+
+function selectTheatres(payload, limit) {
+  const seen = new Set();
+  const combined = [];
+  for (const list of [payload.nearbyTheatres || [], payload.otherTheatres || []]) {
+    for (const theatre of list) {
+      if (!theatre.theatreId || seen.has(theatre.theatreId)) continue;
+      seen.add(theatre.theatreId);
+      combined.push(theatre);
+    }
+  }
+  combined.sort((a, b) => distanceMeters(a) - distanceMeters(b));
+  const chosen = combined.slice(0, limit);
+  const nearbyIds = new Set((payload.nearbyTheatres || []).map((t) => t.theatreId));
+  const usedFromOther = chosen.some((t) => !nearbyIds.has(t.theatreId));
+  return {
+    theatres: chosen.map((t) => {
+      const meters = distanceMeters(t);
+      return {
+        ...t,
+        distanceKm: Number.isFinite(meters) ? Math.round(meters / 100) / 10 : null,
+      };
+    }),
+    source: usedFromOther ? "closest" : "nearby",
+  };
 }
 
 async function mapLimit(items, limit, mapper) {
@@ -345,19 +372,23 @@ async function handleShowings(req, res, url) {
   const theatresPayload = await cineplexJson(
     `${THEATRICAL_API}/v1/theatres?language=en&latitude=${location.lat}&longitude=${location.lng}`,
   );
-  const nearbyTheatres = theatresPayload.nearbyTheatres || [];
-  const fallbackTheatres = (theatresPayload.otherTheatres || [])
-    .toSorted((a, b) => distanceMeters(a) - distanceMeters(b));
-  const theatreSource = nearbyTheatres.length > 0 ? "nearby" : "closest";
-  const theatres = (nearbyTheatres.length > 0 ? nearbyTheatres : fallbackTheatres).slice(0, theatreLimit);
-  const candidates = [];
+  const { theatres, source: theatreSource } = selectTheatres(theatresPayload, theatreLimit);
+  const maxDistanceKm = theatres.reduce(
+    (max, t) => (typeof t.distanceKm === "number" && t.distanceKm > max ? t.distanceKm : max),
+    0,
+  );
 
-  for (const theatre of theatres) {
-    const showtimes = await cineplexJson(
-      `${THEATRICAL_API}/v1/showtimes?language=en&locationId=${theatre.theatreId}&date=${date}`,
-    );
-    candidates.push(...flattenShowtimes(showtimes, theatre));
-  }
+  const showtimeArrays = await mapLimit(theatres, SHOWTIME_FETCH_CONCURRENCY, async (theatre) => {
+    try {
+      const showtimes = await cineplexJson(
+        `${THEATRICAL_API}/v1/showtimes?language=en&locationId=${theatre.theatreId}&date=${date}`,
+      );
+      return flattenShowtimes(showtimes, theatre);
+    } catch {
+      return [];
+    }
+  });
+  const candidates = showtimeArrays.flatMap((entry) => (Array.isArray(entry) ? entry : []));
 
   const counted = await mapLimit(candidates, 5, getSeatCounts);
   const showings = counted
@@ -369,6 +400,7 @@ async function handleShowings(req, res, url) {
     location,
     theatreSource,
     theatreCount: theatres.length,
+    maxDistanceKm: maxDistanceKm > 0 ? maxDistanceKm : null,
     showingCount: showings.length,
     showings,
     errors: IS_PRODUCTION
