@@ -453,8 +453,10 @@ button:focus-visible {
 
 .seat-grid {
   display: grid;
-  gap: 6px;
-  width: max-content;
+  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+  gap: clamp(2px, 0.4vw, 6px);
+  width: 100%;
+  max-width: calc(var(--cols, 1) * 24px + (var(--cols, 1) - 1) * 6px);
   margin: 0 auto;
 }
 
@@ -464,6 +466,12 @@ button:focus-visible {
   border-radius: 6px 6px 2px 2px;
   display: inline-block;
   animation: seatIn 260ms ease-out both;
+}
+
+.seat-grid .seat {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
 }
 
 .seat.available {

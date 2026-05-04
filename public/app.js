@@ -246,7 +246,8 @@ function renderSeatmap(payload) {
 
   const grid = document.createElement("div");
   grid.className = "seat-grid";
-  grid.style.gridTemplateColumns = `repeat(${maxColumn}, 14px)`;
+  grid.style.setProperty("--cols", maxColumn);
+  grid.style.setProperty("--rows", maxRow);
 
   for (let row = 1; row <= maxRow; row += 1) {
     for (let column = 1; column <= maxColumn; column += 1) {
