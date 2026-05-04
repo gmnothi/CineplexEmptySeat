@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Empty Screens</title>
+    <link rel="stylesheet" href="/styles.css?v=13">
+  </head>
+  <body>
+    <main class="app intro">
+      <section class="sidebar">
+        <header class="topbar">
+          <div>
+            <h1><span>Empty</span><span>Screens</span></h1>
+            <p id="summary">Find the quietest rooms near you.</p>
+          </div>
+          <button id="refresh" type="button" title="Refresh">Refresh</button>
+        </header>
+
+        <form id="filters" class="filters">
+          <label>
+            Postal Code
+            <input id="postalCode" name="postalCode" type="text" inputmode="text" placeholder="M5B 2G9" value="M5B 2G9">
+          </label>
+          <label>
+            Date
+            <input id="date" name="date" type="date">
+          </label>
+          <label>
+            Theatres
+            <select id="theatres" name="theatres">
+              <option value="5">5</option>
+              <option value="8" selected>8</option>
+              <option value="12">12</option>
+            </select>
+          </label>
+          <button id="searchButton" class="search-button" type="submit">Search</button>
+        </form>
+
+        <div id="status" class="status">Enter a postal code to begin.</div>
+        <div id="showings" class="showings"></div>
+      </section>
+
+      <section class="detail">
+        <div id="emptyState" class="empty-state">
+          <h2>Select a showing</h2>
+          <p>Seat maps and occupied counts will appear here.</p>
+        </div>
+        <div id="seatDetail" class="seat-detail hidden">
+          <div class="detail-header">
+            <div>
+              <h2 id="detailTitle"></h2>
+              <p id="detailMeta"></p>
+            </div>
+            <div class="detail-count" id="detailCount"></div>
+          </div>
+          <div class="legend">
+            <span><i class="seat available"></i>Available</span>
+            <span><i class="seat occupied"></i>Occupied</span>
+            <span><i class="seat broken"></i>Broken</span>
+          </div>
+          <div id="seatMap" class="seat-map"></div>
+        </div>
+      </section>
+    </main>
+    <script src="/app.js?v=13" type="module"></script>
+  </body>
+</html>
