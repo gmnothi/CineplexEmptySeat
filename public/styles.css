@@ -70,7 +70,7 @@ select {
 }
 
 .app.intro .sidebar {
-  width: min(460px, calc(100vw - 48px));
+  width: min(540px, calc(100vw - 48px));
   margin-left: clamp(-220px, -16vw, -64px);
   border: 1px solid var(--line-strong);
   border-radius: 34px 34px 10px 10px;
