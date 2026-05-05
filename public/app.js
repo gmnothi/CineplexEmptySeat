@@ -23,10 +23,13 @@ let warmShowingsKey = "";
 let warmShowingsPromise = null;
 const openTheatres = new Set();
 
-function todayLocal() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset();
-  return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+function todayToronto() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function formatTime(value) {
@@ -57,7 +60,7 @@ function showStatus(message) {
 }
 
 function currentParams() {
-  const date = dateEl.value || todayLocal();
+  const date = dateEl.value || todayToronto();
   const theatres = theatresEl.value;
   const postalCode = postalCodeEl.value.trim();
   const params = new URLSearchParams({ date, theatres });
@@ -296,7 +299,11 @@ function renderSeatmap(payload) {
   seatMapEl.append(grid);
 }
 
-dateEl.value = todayLocal();
+{
+  const today = todayToronto();
+  dateEl.min = today;
+  if (!dateEl.value || dateEl.value < today) dateEl.value = today;
+}
 warmShowings();
 refreshEl.addEventListener("click", loadShowings);
 document.querySelector("#filters").addEventListener("change", () => {

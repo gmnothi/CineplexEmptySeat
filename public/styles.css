@@ -71,7 +71,7 @@ select {
 
 .app.intro .sidebar {
   width: min(540px, calc(100vw - 48px));
-  margin-left: clamp(-220px, -16vw, -64px);
+  margin: 0 auto;
   border: 1px solid var(--line-strong);
   border-radius: 34px 34px 10px 10px;
   overflow: hidden;
@@ -81,18 +81,27 @@ select {
 .app.intro .topbar {
   min-height: 190px;
   align-items: end;
-  justify-content: flex-start;
-  text-align: left;
+  justify-content: center;
+  text-align: center;
+}
+
+.app.intro .topbar > div {
+  display: grid;
+  justify-items: center;
 }
 
 .app.intro h1 {
   max-width: 330px;
+  margin-inline: auto;
   font-size: clamp(42px, 7vw, 64px);
+  text-align: center;
 }
 
 .app.intro .topbar p {
-  max-width: 220px;
+  max-width: 260px;
+  margin-inline: auto;
   font-size: 16px;
+  text-align: center;
 }
 
 .app.intro #refresh,
