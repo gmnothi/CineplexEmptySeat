@@ -207,6 +207,7 @@ async function loadShowings() {
     showStatus(`${showings.filter((item) => item.occupied === 0).length} empty screenings found.`);
     renderShowings();
     activeShowingId = null;
+    appEl.classList.remove("has-selection");
     emptyStateEl.classList.remove("hidden");
     seatDetailEl.classList.add("hidden");
   } catch (error) {
@@ -219,6 +220,7 @@ async function loadShowings() {
 
 async function loadSeatmap(showing) {
   activeShowingId = showing.showtimeId;
+  appEl.classList.add("has-selection");
   renderShowings();
   emptyStateEl.classList.add("hidden");
   seatDetailEl.classList.remove("hidden");
@@ -226,6 +228,12 @@ async function loadSeatmap(showing) {
   detailMetaEl.textContent = `${showing.theatreName} · ${formatTime(showing.time)} · ${showing.experience}`;
   detailCountEl.textContent = `${showing.occupied} sold`;
   seatMapEl.textContent = "Loading seat map...";
+
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    requestAnimationFrame(() => {
+      seatDetailEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   try {
     const response = await fetch(`/api/seatmap?theatreId=${showing.theatreId}&showtimeId=${showing.showtimeId}`);

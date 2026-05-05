@@ -442,21 +442,21 @@ button:focus-visible {
 .seat-map {
   overflow: auto;
   border: 1px solid var(--line);
-  border-top: 18px solid #d8d0c0;
+  border-top: 14px solid #d8d0c0;
   border-radius: 999px 999px 8px 8px;
   background:
     linear-gradient(90deg, transparent 0 48%, rgba(138, 106, 44, 0.08) 48% 52%, transparent 52%),
     #fbfaf7;
-  padding: 56px 28px 28px;
+  padding: 44px 32px 28px;
   animation: detailIn 360ms ease-out both;
 }
 
 .seat-grid {
   display: grid;
   grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
-  gap: clamp(2px, 0.4vw, 6px);
+  gap: clamp(2px, 0.3vw, 4px);
   width: 100%;
-  max-width: calc(var(--cols, 1) * 24px + (var(--cols, 1) - 1) * 6px);
+  max-width: calc(var(--cols, 1) * 16px + (var(--cols, 1) - 1) * 4px);
   margin: 0 auto;
 }
 
@@ -508,6 +508,30 @@ button:focus-visible {
     min-height: 320px;
   }
 
+  .app.has-selection .detail {
+    order: -1;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .app.has-selection .sidebar {
+    border-bottom: 0;
+  }
+
+  .app.has-selection .empty-state {
+    display: none;
+  }
+
+  .seat-detail {
+    padding: 20px;
+  }
+
+  .detail-header h2 {
+    font-size: 24px;
+  }
+
+  .seat-map {
+    padding: 36px 16px 20px;
+  }
 }
 
 @media (max-width: 560px) {
