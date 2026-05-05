@@ -230,6 +230,26 @@ select {
   background: #fbfaf7;
   color: var(--text);
   padding: 10px;
+  font-size: 16px;
+}
+
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-height: 44px;
+  line-height: 1.2;
+  font-family: inherit;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.4em;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+  opacity: 0.6;
 }
 
 .search-button {
