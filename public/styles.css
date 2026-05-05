@@ -415,7 +415,7 @@ button:focus-visible {
 .detail-count {
   min-width: 112px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px 999px 8px 8px;
+  border-radius: 10px;
   background: #fbfaf7;
   padding: 12px;
   text-align: center;
@@ -443,11 +443,11 @@ button:focus-visible {
   overflow: auto;
   border: 1px solid var(--line);
   border-top: 14px solid #d8d0c0;
-  border-radius: 999px 999px 8px 8px;
+  border-radius: 14px 14px 8px 8px;
   background:
     linear-gradient(90deg, transparent 0 48%, rgba(138, 106, 44, 0.08) 48% 52%, transparent 52%),
     #fbfaf7;
-  padding: 44px 32px 28px;
+  padding: 32px 28px 28px;
   animation: detailIn 360ms ease-out both;
 }
 
@@ -508,17 +508,15 @@ button:focus-visible {
     min-height: 320px;
   }
 
-  .app.has-selection .detail {
-    order: -1;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .app.has-selection .sidebar {
-    border-bottom: 0;
-  }
-
   .app.has-selection .empty-state {
     display: none;
+  }
+
+  .showings .seat-detail {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-soft);
+    padding: 20px 24px;
   }
 
   .seat-detail {
@@ -530,7 +528,7 @@ button:focus-visible {
   }
 
   .seat-map {
-    padding: 36px 16px 20px;
+    padding: 24px 16px 20px;
   }
 }
 

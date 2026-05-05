@@ -14,6 +14,8 @@ const detailTitleEl = document.querySelector("#detailTitle");
 const detailMetaEl = document.querySelector("#detailMeta");
 const detailCountEl = document.querySelector("#detailCount");
 const seatMapEl = document.querySelector("#seatMap");
+const detailHomeEl = seatDetailEl.parentElement;
+const mobileQuery = window.matchMedia("(max-width: 900px)");
 
 let activeShowingId = null;
 let showings = [];
@@ -92,6 +94,23 @@ function scheduleWarmShowings() {
   }, 250);
 }
 
+function placeDetailPanel() {
+  const isMobile = mobileQuery.matches;
+  const isShown = !seatDetailEl.classList.contains("hidden");
+  if (isMobile && isShown && activeShowingId) {
+    const activeBtn = showingsEl.querySelector(
+      `[data-showtime-id="${CSS.escape(activeShowingId)}"]`,
+    );
+    if (activeBtn) {
+      activeBtn.before(seatDetailEl);
+      return;
+    }
+  }
+  if (seatDetailEl.parentElement !== detailHomeEl) {
+    detailHomeEl.append(seatDetailEl);
+  }
+}
+
 function renderShowings() {
   showingsEl.textContent = "";
   showingsEl.classList.remove("ready");
@@ -146,6 +165,7 @@ function renderShowings() {
     }
   }
 
+  placeDetailPanel();
   requestAnimationFrame(() => showingsEl.classList.add("ready"));
 }
 
@@ -221,15 +241,15 @@ async function loadShowings() {
 async function loadSeatmap(showing) {
   activeShowingId = showing.showtimeId;
   appEl.classList.add("has-selection");
-  renderShowings();
   emptyStateEl.classList.add("hidden");
   seatDetailEl.classList.remove("hidden");
+  renderShowings();
   detailTitleEl.textContent = showing.movie;
   detailMetaEl.textContent = `${showing.theatreName} · ${formatTime(showing.time)} · ${showing.experience}`;
   detailCountEl.textContent = `${showing.occupied} sold`;
   seatMapEl.textContent = "Loading seat map...";
 
-  if (window.matchMedia("(max-width: 900px)").matches) {
+  if (mobileQuery.matches) {
     requestAnimationFrame(() => {
       seatDetailEl.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -294,3 +314,4 @@ postalCodeEl.addEventListener("keydown", (event) => {
   }
 });
 postalCodeEl.addEventListener("input", scheduleWarmShowings);
+mobileQuery.addEventListener("change", placeDetailPanel);
