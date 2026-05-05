@@ -19,8 +19,8 @@ const mobileQuery = window.matchMedia("(max-width: 900px)");
 
 let activeShowingId = null;
 let showings = [];
-let warmShowingsKey = "";
-let warmShowingsPromise = null;
+let activeAbort = null;
+let lastMeta = null;
 const openTheatres = new Set();
 
 function todayToronto() {
@@ -70,33 +70,25 @@ function currentParams() {
   return params;
 }
 
-function warmShowings() {
-  const params = currentParams();
-  const key = params.toString();
-  if (warmShowingsPromise && warmShowingsKey === key) return warmShowingsPromise;
-
-  warmShowingsKey = key;
-  warmShowingsPromise = fetch(`/api/showings?${params}`)
-    .then(async (response) => {
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Unable to load showings");
-      return payload;
-    })
-    .catch((error) => {
-      if (warmShowingsKey === key) {
-        warmShowingsPromise = null;
-      }
-      throw error;
-    });
-
-  return warmShowingsPromise;
+function buildSummary(meta, showingCount) {
+  if (!meta) return "";
+  const radiusLabel = formatDistance(meta.maxDistanceKm);
+  const radiusSuffix = radiusLabel ? ` (within ${radiusLabel})` : "";
+  const theatreLabel = meta.theatreSource === "closest" ? "closest theatres" : "theatres";
+  const count = typeof showingCount === "number" ? showingCount : meta.theatreCount;
+  if (typeof showingCount === "number") {
+    return `${count} showings across ${meta.theatreCount} ${theatreLabel} near ${meta.location.label}${radiusSuffix}.`;
+  }
+  return `Loading ${meta.theatreCount} ${theatreLabel} near ${meta.location.label}${radiusSuffix}…`;
 }
 
-function scheduleWarmShowings() {
-  window.clearTimeout(scheduleWarmShowings.timer);
-  scheduleWarmShowings.timer = window.setTimeout(() => {
-    warmShowings().catch(() => {});
-  }, 250);
+function sortShowings(items) {
+  return items.sort((a, b) =>
+    (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY)
+    || a.theatreName.localeCompare(b.theatreName)
+    || a.occupied - b.occupied
+    || new Date(a.time) - new Date(b.time)
+  );
 }
 
 function placeDetailPanel() {
@@ -216,28 +208,76 @@ function moveSearchToRail() {
 
 async function loadShowings() {
   moveSearchToRail();
-  showStatus("Loading Cineplex showtimes and seat counts...");
+  if (activeAbort) activeAbort.abort();
+  activeAbort = new AbortController();
+  const myAbort = activeAbort;
+
+  showings = [];
+  openTheatres.clear();
+  activeShowingId = null;
+  lastMeta = null;
+  appEl.classList.remove("has-selection");
+  emptyStateEl.classList.remove("hidden");
+  seatDetailEl.classList.add("hidden");
+  showingsEl.textContent = "";
+
+  showStatus("Loading Cineplex showtimes and seat counts…");
   refreshEl.disabled = true;
   searchButtonEl.disabled = true;
 
-  try {
-    const payload = await warmShowings();
+  let theatresReceived = 0;
 
-    showings = payload.showings;
-    openTheatres.clear();
-    const theatreLabel = payload.theatreSource === "closest" ? "closest theatres" : "theatres";
-    const radiusLabel = formatDistance(payload.maxDistanceKm);
-    const radiusSuffix = radiusLabel ? ` (within ${radiusLabel})` : "";
-    summaryEl.textContent = `${payload.showingCount} showings across ${payload.theatreCount} ${theatreLabel} near ${payload.location.label}${radiusSuffix}.`;
-    showStatus(`${showings.filter((item) => item.occupied === 0).length} empty screenings found.`);
-    renderShowings();
-    activeShowingId = null;
-    appEl.classList.remove("has-selection");
-    emptyStateEl.classList.remove("hidden");
-    seatDetailEl.classList.add("hidden");
+  const handleEvent = (event) => {
+    if (event.type === "meta") {
+      lastMeta = event;
+      summaryEl.textContent = buildSummary(event);
+    } else if (event.type === "theatre") {
+      theatresReceived += 1;
+      showings = sortShowings([...showings, ...event.showings]);
+      const empties = showings.filter((s) => s.occupied === 0).length;
+      const total = lastMeta ? lastMeta.theatreCount : theatresReceived;
+      showStatus(`${theatresReceived}/${total} theatres · ${empties} empty so far`);
+      renderShowings();
+    } else if (event.type === "theatreError") {
+      theatresReceived += 1;
+    } else if (event.type === "done") {
+      summaryEl.textContent = buildSummary(lastMeta, event.showingCount);
+      const empties = showings.filter((s) => s.occupied === 0).length;
+      showStatus(`${empties} empty screenings found.`);
+    } else if (event.type === "error") {
+      showStatus(event.error);
+    }
+  };
+
+  try {
+    const response = await fetch(`/api/showings?${currentParams()}`, { signal: myAbort.signal });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || `Unable to load showings (${response.status})`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newlineIdx;
+      while ((newlineIdx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, newlineIdx).trim();
+        buffer = buffer.slice(newlineIdx + 1);
+        if (line) handleEvent(JSON.parse(line));
+      }
+    }
+    const tail = buffer.trim();
+    if (tail) handleEvent(JSON.parse(tail));
   } catch (error) {
-    showStatus(error.message);
+    if (error.name !== "AbortError") {
+      showStatus(error.message);
+    }
   } finally {
+    if (activeAbort === myAbort) activeAbort = null;
     refreshEl.disabled = false;
     searchButtonEl.disabled = false;
   }
@@ -306,10 +346,8 @@ function renderSeatmap(payload) {
   dateEl.min = today;
   if (!dateEl.value || dateEl.value < today) dateEl.value = today;
 }
-warmShowings();
 refreshEl.addEventListener("click", loadShowings);
 document.querySelector("#filters").addEventListener("change", () => {
-  scheduleWarmShowings();
   if (appEl.classList.contains("searched")) loadShowings();
 });
 document.querySelector("#filters").addEventListener("submit", (event) => {
@@ -322,5 +360,4 @@ postalCodeEl.addEventListener("keydown", (event) => {
     loadShowings();
   }
 });
-postalCodeEl.addEventListener("input", scheduleWarmShowings);
 mobileQuery.addEventListener("change", placeDetailPanel);
