@@ -18,7 +18,8 @@ Choosing a movie time usually means opening seat maps one by one. This project b
 
 - Search by Canadian postal code and date.
 - Compare reserved-seating screenings across nearby theatres.
-- Sort screenings by occupied seats, with time as the tie-breaker.
+- Order theatres by distance, then sort each theatre's screenings by occupied seats and time.
+- Stream completed theatre results into the page instead of waiting for every request.
 - Browse showtimes grouped by theatre.
 - Inspect available, occupied, and broken seats on a visual map.
 - Fall back to Toronto when no location is supplied.
@@ -43,7 +44,7 @@ Node.js HTTP server
 Occupied-seat counts -> ranked screenings -> browser seat map
 ```
 
-The server keeps the upstream credential out of the browser. It caches upstream responses and computed results, coalesces identical in-flight requests, and limits seat-count requests to five concurrent workers. Request timeouts, input checks, per-IP throttling, and security headers keep the boundary small and explicit.
+The server keeps the upstream subscription header out of browser requests. It caches upstream responses, coalesces identical in-flight requests, and uses bounded worker pools for theatres and per-theatre seat counts. Results stream as newline-delimited JSON, so the browser can show finished theatres while others are still loading. New searches abort the previous browser request. Request timeouts, input checks, per-IP throttling, and security headers keep the boundary small and explicit.
 
 ## Stack
 
@@ -53,6 +54,7 @@ The server keeps the upstream credential out of the browser. It caches upstream 
 | Server | Node.js built-in HTTP server |
 | State | In-memory caches and request tracking |
 | External data | Cineplex endpoints; postal-code geocoding |
+| Results transport | NDJSON with streamed per-theatre updates |
 | Runtime dependencies | None |
 
 ## Run Locally
@@ -87,9 +89,10 @@ The existing subscription-key fallback is retained for compatibility. Availabili
 | `NODE_ENV` | Set to `production` to hide upstream error details |
 | `DEFAULT_LAT`, `DEFAULT_LNG` | Fallback coordinates |
 | `DEFAULT_THEATRES`, `MAX_THEATRES` | Theatre search bounds |
+| `SHOWTIME_FETCH_CONCURRENCY`, `SEAT_FETCH_CONCURRENCY` | Theatre and per-theatre seat-count worker pools |
 | `API_RATE_LIMIT`, `API_RATE_WINDOW_MS` | Per-IP request limit |
 | `FETCH_TIMEOUT_MS` | Upstream request timeout |
-| `UPSTREAM_CACHE_TTL_MS`, `COMPUTED_CACHE_TTL_MS` | Cache lifetimes |
+| `UPSTREAM_CACHE_TTL_MS` | Upstream response cache lifetime |
 
 See [.env.example](.env.example) for defaults.
 
@@ -98,8 +101,10 @@ See [.env.example](.env.example) for defaults.
 | Endpoint | Description |
 | --- | --- |
 | `GET /healthz` | Lightweight server health check |
-| `GET /api/showings?postalCode=M5B%202G9&date=YYYY-MM-DD&theatres=8` | Ranked screenings and seat counts |
+| `GET /api/showings?postalCode=M5B%202G9&date=YYYY-MM-DD&theatres=12` | Streamed theatre results and ranked seat counts |
 | `GET /api/seatmap?theatreId=...&showtimeId=...` | Layout and availability for one screening |
+
+`/api/showings` returns `application/x-ndjson`: `meta`, `theatre`, `theatreError`, `done`, or `error` events. Clients must handle stream-level errors even after an HTTP 200 response. `/api/seatmap` returns ordinary JSON.
 
 ## Checks
 
