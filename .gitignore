@@ -9,3 +9,5 @@ coverage/
 dist/
 .vercel/
 .netlify/
+.playwright-cli/
+output/
