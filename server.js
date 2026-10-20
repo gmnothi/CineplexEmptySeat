@@ -589,7 +589,7 @@ server.headersTimeout = 35_000;
 server.keepAliveTimeout = 5_000;
 
 server.listen(PORT, () => {
-  console.log(`Empty Screens running at http://localhost:${PORT}`);
+  console.log(`Empty Screens running at http://localhost:${server.address().port}`);
 });
 
 setInterval(cleanupRateLimits, API_RATE_WINDOW_MS).unref();
